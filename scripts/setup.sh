@@ -1,45 +1,57 @@
-#!/bin/sh
+#!/bin/bash
 set -e
 
 CONFIG_DIR="$HOME/.config/dotidx"
-BACKUP_DIR="$HOME/dotidxBackup"
+STATE_FILE="$CONFIG_DIR/state.conf"
+BASE_BACKUP_DIR="$HOME/dotidxBackup"
+
+# 1. Force Profile Name
+read -p "Enter profile name (lowercase, no symbols): " PROFILE
+if [[ ! "$PROFILE" =~ ^[a-z0-9]+$ ]]; then
+    echo "FATAL: Invalid name '$PROFILE'. Use lowercase alphanumeric only."
+    exit 1
+fi
+
+PROFILE_BACKUP_DIR="$BASE_BACKUP_DIR/$PROFILE"
 
 mkdir -p "$CONFIG_DIR"
-mkdir -p "$BACKUP_DIR"
-touch "$CONFIG_DIR/track.conf"
+mkdir -p "$PROFILE_BACKUP_DIR"
+# Initialize as JSON object if empty
+if [ ! -s "$CONFIG_DIR/track.conf" ]; then
+    echo "{}" > "$CONFIG_DIR/track.conf"
+fi
 
-echo "Built $CONFIG_DIR and $BACKUP_DIR"
+# 2. Save Session State
+echo "$PROFILE" > "$STATE_FILE"
+echo "Profile '$PROFILE' active."
 
+# 3. Handle Git Remote
 URL="$1"
-
 if [ -z "$URL" ]; then
-    read -r -p "Add a URL? (y/N) " answer
+    read -p "Add a URL for this profile? (y/N) " answer
     case "$answer" in
-        [Yy]*) read -r -p "Enter repo URL: " URL ;;
+        [Yy]*) read -p "Enter repo URL: " URL ;;
         *) URL="" ;;
     esac
 fi
 
 if [ -n "$URL" ]; then
-    TMP_DIR=$(mktemp -d)
-
-    echo "Cloning $URL..."
-    git clone "$URL" "$TMP_DIR"
-
-    # copy repo contents WITHOUT .git
-    rsync -a --exclude='.git' "$TMP_DIR"/ "$BACKUP_DIR"/
-    rm -rf "$TMP_DIR"
-
-    cd "$BACKUP_DIR"
-
+    echo "Initializing repo in $PROFILE_BACKUP_DIR..."
+    cd "$PROFILE_BACKUP_DIR"
+    
     if [ ! -d ".git" ]; then
         git init
         git remote add origin "$URL"
     fi
 
-    git add -A
-    git commit -m "initial import" || echo "Nothing to commit"
-    git push -u origin master || git push -u origin main || true
+    # Fetch and reset to remote state instead of rsyncing a temp dir
+    git fetch origin
+    # Try to switch to main or master from remote
+    if git rev-parse --verify origin/main >/dev/null 2>&1; then
+        git checkout -b main origin/main || git checkout main
+    elif git rev-parse --verify origin/master >/dev/null 2>&1; then
+        git checkout -b master origin/master || git checkout master
+    fi
 
-    echo "Backup repo initialized."
+    echo "Backup repo for '$PROFILE' synchronized with remote."
 fi

@@ -4,100 +4,84 @@ set -euo pipefail
 # -------------------------
 # Configuration
 # -------------------------
-BACKUP="$HOME/dotidxBackup"
+STATE_FILE="$HOME/.config/dotidx/state.conf"
 TRACK_CONF="$HOME/.config/dotidx/track.conf"
+BASE_BACKUP="$HOME/dotidxBackup"
 
+if [ ! -f "$STATE_FILE" ]; then
+    echo "Error: No active profile found."
+    exit 1
+fi
+
+PROFILE=$(cat "$STATE_FILE")
+BACKUP="$BASE_BACKUP/$PROFILE"
 mkdir -p "$BACKUP"
 
 # -------------------------
 # Load tracked paths
 # -------------------------
 if [ ! -s "$TRACK_CONF" ]; then
-  echo "No tracked files. Nothing to back up."
-  exit 0
+    echo "No tracking configuration found."
+    exit 0
 fi
 
-mapfile -t TRACKED < <(jq -r '.[]' "$TRACK_CONF" | sed "s|^~|$HOME|")
+mapfile -t TRACKED < <(jq -r --arg prof "$PROFILE" 'to_entries[] | select(.value | index($prof)) | .key' "$TRACK_CONF" | sed "s|^~|$HOME|")
 
-echo "Backing up ${#TRACKED[@]} paths..."
+if [ ${#TRACKED[@]} -eq 0 ]; then
+    echo "No files tracked for profile: $PROFILE"
+    exit 0
+fi
 
 # -------------------------
 # COPY PHASE
-# - NO symlinks
-# - Always copy real content
 # -------------------------
 for src in "${TRACKED[@]}"; do
-  if [ ! -e "$src" ]; then
-    echo "Skipping missing: $src"
-    continue
-  fi
-
-  dst="$BACKUP${src#$HOME}"
-  mkdir -p "$(dirname "$dst")"
-
-  if [ -d "$src" ]; then
-    # remove nested git repos inside tracked paths
-    find "$src" -type d -name ".git" -prune -exec rm -rf {} +
-
-    rsync \
-      -a \
-      --copy-links \
-      --safe-links \
-      --delete \
-      "$src/" "$dst/"
-  else
-    cp -RL "$src" "$dst"
-  fi
+    [ ! -e "$src" ] && continue
+    dst="$BACKUP${src#$HOME}"
+    mkdir -p "$(dirname "$dst")"
+    if [ -d "$src" ]; then
+        # Use rsync to mirror content
+        rsync -a --copy-links --safe-links --delete --exclude ".git" "$src/" "$dst/"
+    else
+        cp -RL "$src" "$dst"
+    fi
 done
 
 # -------------------------
 # CLEANUP PHASE
-# - remove untracked files
-# - NEVER touch outer .git or .config
 # -------------------------
-while IFS= read -r path; do
-  keep=false
-
-  for t in "${TRACKED[@]}"; do
-    tracked_dst="$BACKUP${t#$HOME}"
-    [[ "$path" == "$tracked_dst"* ]] && keep=true && break
-  done
-
-  if ! $keep; then
-    rm -rf "$path"
-    echo "Removed: $path"
-  fi
-done < <(
-  find "$BACKUP" \
-    -depth -mindepth 1 \
-    -path "$BACKUP/.git" -prune -o \
-    -path "$BACKUP/.git/*" -prune -o \
-    -path "$BACKUP/.config" -prune -o \
-    -path "$BACKUP/.config/*" -prune -o \
-    -print
-)
+# We only delete files inside $BACKUP that are NOT in the tracking list
+# and NOT part of the .git directory.
+find "$BACKUP" -mindepth 1 -not -path "$BACKUP/.git*" | while read -r path; do
+    keep=false
+    for t in "${TRACKED[@]}"; do
+        tracked_dst="$BACKUP${t#$HOME}"
+        # Keep if path is tracked_dst, or a parent of tracked_dst, or a child of tracked_dst
+        if [[ "$tracked_dst" == "$path"* ]] || [[ "$path" == "$tracked_dst"* ]]; then
+            keep=true
+            break
+        fi
+    done
+    if [ "$keep" = false ]; then
+        rm -rf "$path"
+    fi
+done
 
 # -------------------------
 # GIT PHASE
 # -------------------------
-cd "$BACKUP"
-
-if [ -d ".git" ]; then
-  git add -A
-  git commit -m "auto-update ($(date '+%Y-%m-%d %H:%M:%S'))" || echo "Nothing to commit"
-  git push || echo "Push failed or no remote configured"
+if [ -d "$BACKUP/.git" ]; then
+    cd "$BACKUP"
+    # Basic check to ensure it's a repo
+    if [ -f ".git/config" ]; then
+        git add -A
+        git commit -m "auto-update [$PROFILE] ($(date '+%Y-%m-%d %H:%M:%S'))" || echo "Nothing to commit"
+        git push origin "$(git rev-parse --abbrev-ref HEAD)" || echo "Push failed"
+    else
+        echo "Error: .git directory is corrupted in $BACKUP"
+    fi
 else
-  echo "No Git repository found. Use: dotidx setup [url]"
+    echo "No .git found for profile '$PROFILE'."
 fi
 
-# -------------------------
-# FINAL VERIFY
-# -------------------------
-if find "$BACKUP" -type l | grep -q .; then
-  echo "WARNING: symlinks detected in backup (this should not happen)"
-else
-  echo "Verified: no symlinks in backup"
-fi
-
-echo "Backup complete."
-echo "Note: nested .git directories inside tracked paths were removed."
+echo "Backup complete for profile '$PROFILE'."

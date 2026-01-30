@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 import argparse
 import subprocess
@@ -24,6 +23,7 @@ console = Console()
 HOME = Path.home()
 CONFIG_DIR = HOME / ".config" / "dotidx"
 TRACK_FILE = CONFIG_DIR / "track.conf"
+STATE_FILE = CONFIG_DIR / "state.conf"
 BACKUP_DIR = HOME / "dotidxBackup"
 DOT_CONFIG = HOME / ".config"
 LOCAL_APPS = HOME / ".local" / "share" / "applications"
@@ -32,27 +32,32 @@ LOCAL_APPS = HOME / ".local" / "share" / "applications"
 # Helpers
 # -------------------------
 
-def expand_list(path_list):
-    return set(Path(p).expanduser().resolve() for p in path_list)
+def get_current_profile():
+    if not STATE_FILE.exists():
+        show_error("No active profile. Run 'dotidx setup' or 'dotidx profile <name>'.")
+        exit(1)
+    return STATE_FILE.read_text().strip()
 
-
-def load_json_list(path: Path):
-    if not path.exists() or path.stat().st_size == 0:
-        return []
+def load_track_data():
+    if not TRACK_FILE.exists() or TRACK_FILE.stat().st_size == 0:
+        return {}
     try:
-        with open(path) as f:
+        with open(TRACK_FILE) as f:
             return json.load(f)
     except json.JSONDecodeError:
-        return []
+        return {}
 
+def save_track_data(data):
+    with open(TRACK_FILE, "w") as f:
+        json.dump(data, f, indent=2)
 
-def save_json_list(path: Path, items, home: Path):
-    with open(path, "w") as f:
-        json.dump(
-            [str(p).replace(str(home), "~") for p in sorted(items)],
-            f,
-            indent=2,
-        )
+def get_tracked_for_profile(profile):
+    data = load_track_data()
+    tracked_paths = []
+    for path_str, profiles in data.items():
+        if profile in profiles:
+            tracked_paths.append(Path(path_str).expanduser().resolve())
+    return set(tracked_paths)
 
 # -------------------------
 # Commands
@@ -66,215 +71,145 @@ def run_setup(repo_url=None):
         cmd.append(repo_url)
     subprocess.run(cmd, check=True)
 
+def run_profile_switch(name):
+    if not name:
+        show_info(f"Current profile: {get_current_profile()}")
+        return
+    if not (BACKUP_DIR / name).exists():
+        show_error(f"Profile '{name}' does not exist in {BACKUP_DIR}")
+        return
+    STATE_FILE.write_text(name)
+    show_success(f"Switched to profile: {name}")
+
+def run_rest():
+    script_dir = Path(__file__).parent.resolve()
+    update_script = script_dir / "scripts" / "rest.sh"
+    subprocess.run([str(update_script)], check=True)
+
 
 def run_update():
     script_dir = Path(__file__).parent.resolve()
     update_script = script_dir / "scripts" / "update.sh"
     subprocess.run([str(update_script)], check=True)
-    show_success("Backup sync complete.")
-
-
-def clear_config():
-    script_dir = Path(__file__).parent.resolve()
-    clear_script = script_dir / "scripts" / "clear.sh"
-    subprocess.run([str(clear_script)], check=True)
-    show_success("config cleared.")
-
 
 def run_config():
-    yes_list = set(str(p) for p in expand_list(load_json_list(TRACK_FILE)))
+    profile = get_current_profile()
+    data = load_track_data()
+    profile_tracked = [str(p) for p in get_tracked_for_profile(profile)]
+    
     candidates = []
-
-    # top-level dotfiles in ~ (except .config)
     for f in HOME.iterdir():
         if f.name.startswith(".") and f != DOT_CONFIG:
-            if str(f) not in yes_list:
-                candidates.append(f)
-
-    # subdirectories of ~/.config
+            candidates.append(f)
     if DOT_CONFIG.exists():
         for d in DOT_CONFIG.iterdir():
-            if d.is_dir() and str(d) not in yes_list:
+            if d.is_dir():
                 candidates.append(d)
-
-    # ~/.local/share/applications as ONE directory
-    if LOCAL_APPS.exists() and str(LOCAL_APPS) not in yes_list:
+    if LOCAL_APPS.exists():
         candidates.append(LOCAL_APPS)
 
-    if not candidates:
-        show_info("No new dotfiles to configure.")
-        return
-
     candidates.sort()
-
-    preselected = [c for c in candidates if str(c) in yes_list]
-
-    show_info(f"Found {len(candidates)} dotfiles to configure...")
+    preselected = [c for c in candidates if str(c) in profile_tracked]
+    
+    show_info(f"Configuring profile: [bold]{profile}[/bold]")
     selected = interactive_select(candidates, preselected, HOME)
 
-    yes_list = set(str(p) for p in selected)
-    save_json_list(TRACK_FILE, yes_list, HOME)
+    new_selected_strs = set(str(p.resolve()) for p in selected)
+    
+    # Update global data structure
+    for c in candidates:
+        c_str = str(c.resolve()).replace(str(HOME), "~")
+        path_key = str(c.resolve())
+        current_profiles = data.get(path_key, [])
+        
+        if path_key in new_selected_strs:
+            if profile not in current_profiles:
+                current_profiles.append(profile)
+        else:
+            if profile in current_profiles:
+                current_profiles.remove(profile)
+        
+        if current_profiles:
+            data[path_key] = sorted(current_profiles)
+        elif path_key in data:
+            del data[path_key]
 
-    show_success(f"Configuration complete. Tracking {len(yes_list)} items.")
-
+    save_track_data(data)
+    show_success(f"Configuration complete for '{profile}'.")
 
 def run_list():
-    tracked = expand_list(load_json_list(TRACK_FILE))
+    profile = get_current_profile()
+    tracked = get_tracked_for_profile(profile)
     if not tracked:
-        show_info("No dotfiles are currently tracked.")
+        show_info(f"No dotfiles tracked for profile '{profile}'.")
         return
 
-    home_items = []
-    config_items = []
-
-    for path in tracked:
-        try:
-            rel = path.relative_to(HOME)
-        except ValueError:
-            continue
-
-        display = Path("~") / rel
-        if rel.parts[0] == ".config":
-            config_items.append(display)
-        else:
-            home_items.append(display)
-
-    console.print("\n[bold cyan]Tracked Dotfiles:[/bold cyan]\n")
-    for p in sorted(home_items):
-        console.print(f"  [green]•[/green] {p}")
-    for p in sorted(config_items):
-        console.print(f"  [green]•[/green] {p}")
-    console.print()
-
+    console.print(f"\n[bold cyan]Tracked ({profile}):[/bold cyan]\n")
+    for p in sorted(tracked):
+        display = str(p).replace(str(HOME), "~")
+        console.print(f"  [green]•[/green] {display}")
 
 def run_add(name):
-    tracked = expand_list(load_json_list(TRACK_FILE))
-    candidates = set()
-
-    checks = [
-        HOME / name,
-        HOME / f".{name}",
-        DOT_CONFIG / name,
-    ]
-
-    for p in checks:
-        if p.exists():
-            candidates.add(p.resolve())
-
-    for p in HOME.glob(f".{name}.*"):
-        candidates.add(p.resolve())
+    profile = get_current_profile()
+    checks = [HOME / name, HOME / f".{name}", DOT_CONFIG / name]
+    candidates = [p.resolve() for p in checks if p.exists()]
 
     if not candidates:
         show_error(f"No match found for: {name}")
         return
-
-    if len(candidates) > 1:
-        show_warning("Multiple matches:")
-        for c in sorted(candidates):
-            console.print(f"  [yellow]•[/yellow] {c}")
+    
+    target = candidates[0]
+    target_str = str(target)
+    data = load_track_data()
+    
+    profiles = data.get(target_str, [])
+    if profile in profiles:
+        show_info(f"Already tracked in '{profile}': {target_str}")
         return
-
-    target = candidates.pop()
-    if target in tracked:
-        show_info(f"Already tracked: {target}")
-        return
-
-    tracked.add(target)
-    save_json_list(TRACK_FILE, tracked, HOME)
-    show_success(f"Added: {target}")
-
+        
+    profiles.append(profile)
+    data[target_str] = sorted(profiles)
+    save_track_data(data)
+    show_success(f"Added to '{profile}': {target_str}")
 
 def run_remove(name):
-    tracked = expand_list(load_json_list(TRACK_FILE))
-    matches = set()
+    profile = get_current_profile()
+    data = load_track_data()
+    target_key = None
 
-    for t in tracked:
-        try:
-            rel = t.relative_to(HOME)
-        except ValueError:
-            continue
+    for path_str in data:
+        if name in path_str:
+            target_key = path_str
+            break
 
-        if (
-            rel.parts[0] == name
-            or rel.parts[0] == f".{name}"
-            or rel.parts[0].startswith(f".{name}.")
-            or rel.parts[:2] == (".config", name)
-        ):
-            matches.add(t)
-
-    if not matches:
-        show_error(f"No tracked entry for: {name}")
+    if not target_key or profile not in data[target_key]:
+        show_error(f"Not tracked in '{profile}': {name}")
         return
 
-    if len(matches) > 1:
-        show_warning("Multiple matches:")
-        for m in sorted(matches):
-            console.print(f"  [yellow]•[/yellow] {m}")
-        return
-
-    tracked.remove(matches.pop())
-    save_json_list(TRACK_FILE, tracked, HOME)
-    show_success("Removed.")
-
-
-def run_rest():
-    show_warning("This will delete ALL backups and reset configuration.")
-    ans = input("Type 'yes' to continue: ").strip().lower()
-    if ans != "yes":
-        show_info("Cancelled.")
-        return
-
-    if BACKUP_DIR.exists():
-        shutil.rmtree(BACKUP_DIR)
-
-    TRACK_FILE.write_text("[]\n")
-    show_success("Reset complete.")
-
-# -------------------------
-# CLI
-# -------------------------
+    data[target_key].remove(profile)
+    if not data[target_key]:
+        del data[target_key]
+    
+    save_track_data(data)
+    show_success(f"Removed '{name}' from profile '{profile}'.")
 
 def main():
-    parser = argparse.ArgumentParser(description="dotidx – explicit dotfile tracking")
+    parser = argparse.ArgumentParser(description="dotidx – multi-profile dotfile tracking")
     parser.add_argument(
         "mode",
-        choices=["update", "config", "list", "setup", "add", "remove", "rest"],
+        choices=["rest","update", "sync", "config", "list", "setup", "add", "remove", "profile"],
     )
-    parser.add_argument("addtional", nargs="?")
+    parser.add_argument("additional", nargs="?")
     args = parser.parse_args()
 
-    if args.mode == "update":
-        run_update()
-
-    elif args.mode == "config":
-        if args.addtional == "rest":
-            clear_config()
-        elif args.addtional:
-            show_error(f"{args.addtional} is not a valid option for config")
-        else:
-            run_config()
-
-    elif args.mode == "list":
-        run_list()
-
-    elif args.mode == "setup":
-        run_setup(args.addtional)
-
-    elif args.mode == "add":
-        if not args.addtional:
-            show_error("Name of program missing.")
-        else:
-            run_add(args.addtional)
-
-    elif args.mode == "remove":
-        if not args.addtional:
-            show_error("Name of program missing.")
-        else:
-            run_remove(args.addtional)
-
-    elif args.mode == "rest":
-        run_rest()
-
+    if args.mode == "update": run_update()
+    elif args.mode == "rest": run_rest()
+    elif args.mode == "config": run_config()
+    elif args.mode == "list": run_list()
+    elif args.mode == "setup": run_setup(args.additional)
+    elif args.mode == "add": run_add(args.additional)
+    elif args.mode == "remove": run_remove(args.additional)
+    elif args.mode == "profile": run_profile_switch(args.additional)
 
 if __name__ == "__main__":
     main()
