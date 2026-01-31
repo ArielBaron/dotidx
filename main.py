@@ -13,7 +13,9 @@ from interactive import (
     show_warning,
 )
 from rich.console import Console
-
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 console = Console()
 
 # -------------------------
@@ -87,6 +89,12 @@ def run_rest():
     subprocess.run([str(update_script)], check=True)
 
 
+def run_sync():
+    script_dir = Path(__file__).parent.resolve()
+    sync_script = script_dir / "scripts" / "sync.sh"
+    subprocess.run([str(sync_script)], check=True)
+
+
 def run_update():
     script_dir = Path(__file__).parent.resolve()
     update_script = script_dir / "scripts" / "update.sh"
@@ -118,7 +126,6 @@ def run_config():
     
     # Update global data structure
     for c in candidates:
-        c_str = str(c.resolve()).replace(str(HOME), "~")
         path_key = str(c.resolve())
         current_profiles = data.get(path_key, [])
         
@@ -149,10 +156,15 @@ def run_list():
         display = str(p).replace(str(HOME), "~")
         console.print(f"  [green]•[/green] {display}")
 
-def run_add(name):
+def run_add(name, is_path=False):
     profile = get_current_profile()
-    checks = [HOME / name, HOME / f".{name}", DOT_CONFIG / name]
-    candidates = [p.resolve() for p in checks if p.exists()]
+    
+    if is_path:
+        target = Path(name).expanduser().resolve()
+        candidates = [target] if target.exists() else []
+    else:
+        checks = [HOME / name, HOME / f".{name}", DOT_CONFIG / name]
+        candidates = [p.resolve() for p in checks if p.exists()]
 
     if not candidates:
         show_error(f"No match found for: {name}")
@@ -172,17 +184,20 @@ def run_add(name):
     save_track_data(data)
     show_success(f"Added to '{profile}': {target_str}")
 
-def run_remove(name):
+def run_remove(name, is_path=False):
     profile = get_current_profile()
     data = load_track_data()
     target_key = None
 
-    for path_str in data:
-        if name in path_str:
-            target_key = path_str
-            break
+    if is_path:
+        target_key = str(Path(name).expanduser().resolve())
+    else:
+        for path_str in data:
+            if name in path_str:
+                target_key = path_str
+                break
 
-    if not target_key or profile not in data[target_key]:
+    if not target_key or target_key not in data or profile not in data[target_key]:
         show_error(f"Not tracked in '{profile}': {name}")
         return
 
@@ -200,15 +215,17 @@ def main():
         choices=["rest","update", "sync", "config", "list", "setup", "add", "remove", "profile"],
     )
     parser.add_argument("additional", nargs="?")
+    parser.add_argument("-p", "--path", action="store_true", help="Treat input as a direct filesystem path")
     args = parser.parse_args()
 
     if args.mode == "update": run_update()
+    elif args.mode == "sync": run_sync()
     elif args.mode == "rest": run_rest()
     elif args.mode == "config": run_config()
     elif args.mode == "list": run_list()
     elif args.mode == "setup": run_setup(args.additional)
-    elif args.mode == "add": run_add(args.additional)
-    elif args.mode == "remove": run_remove(args.additional)
+    elif args.mode == "add": run_add(args.additional, args.path)
+    elif args.mode == "remove": run_remove(args.additional, args.path)
     elif args.mode == "profile": run_profile_switch(args.additional)
 
 if __name__ == "__main__":
