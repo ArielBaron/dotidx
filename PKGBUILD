@@ -1,6 +1,6 @@
 # Maintainer: Ariel Baron <arielbar80@gmail.com>
 pkgname=dotidx
-pkgver=1.0.0
+pkgver=1.0.1
 pkgrel=1
 pkgdesc="A declarative, multi-profile dotfile manager focused on physical isolation and manifest-based tracking."
 arch=('any')
@@ -10,24 +10,14 @@ depends=('python' 'python-rich' 'rsync')
 makedepends=('git')
 source=("${pkgname}::git+${url}.git#tag=v${pkgver}")
 sha256sums=('SKIP')
+
 package() {
   cd "$srcdir/$pkgname"
-
-  # Create directories
   install -d "$pkgdir/usr/share/dotidx"
   install -d "$pkgdir/usr/bin"
-
-  # Install Python files
-  install -m644 main.py "$pkgdir/usr/share/dotidx/main.py"
+  install -m755 main.py "$pkgdir/usr/share/dotidx/main.py"
   install -m644 interactive.py "$pkgdir/usr/share/dotidx/interactive.py"
-  
-  # Install scripts directory and preserve executable bits
   cp -r scripts "$pkgdir/usr/share/dotidx/"
   chmod +x "$pkgdir/usr/share/dotidx/scripts/"*.sh
-
-  # Ensure the entry point is executable
-  chmod +x "$pkgdir/usr/share/dotidx/main.py"
-
-  # Create symlink in /usr/bin
-  ln -s /usr/share/dotidx/main.py "$pkgdir/usr/bin/dotidx"
+  ln -sf /usr/share/dotidx/main.py "$pkgdir/usr/bin/dotidx"
 }

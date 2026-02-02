@@ -7,11 +7,9 @@ from pathlib import Path
 import sys
 import os
 
-# Resolve the real path of the script to find the library and scripts folder
+# RESOLVE REAL PATH TO HANDLE SYMLINKS
 REAL_FILE_PATH = Path(os.path.realpath(__file__))
 REAL_DIR = REAL_FILE_PATH.parent
-
-# Add real directory to sys.path for imports
 sys.path.append(str(REAL_DIR))
 
 from interactive import (
