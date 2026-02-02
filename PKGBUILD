@@ -8,25 +8,26 @@ url="https://github.com/ArielBaron/dotidx"
 license=('MIT')
 depends=('python' 'python-rich' 'rsync')
 makedepends=('git')
-source=("${pkgname}::git+ssh://git@github.com/ArielBaron/dotidx.git#tag=v${pkgver}")
+source=("${pkgname}::git+${url}.git#tag=v${pkgver}")
 sha256sums=('SKIP')
-
 package() {
   cd "$srcdir/$pkgname"
 
-  # Create system directories
+  # Create directories
   install -d "$pkgdir/usr/share/dotidx"
   install -d "$pkgdir/usr/bin"
 
   # Install Python files
-  # Stat main.py specifically since that is your current filename
-  install -m755 main.py "$pkgdir/usr/share/dotidx/main.py"
+  install -m644 main.py "$pkgdir/usr/share/dotidx/main.py"
   install -m644 interactive.py "$pkgdir/usr/share/dotidx/interactive.py"
   
-  # Copy scripts and set execution bits
+  # Install scripts directory and preserve executable bits
   cp -r scripts "$pkgdir/usr/share/dotidx/"
   chmod +x "$pkgdir/usr/share/dotidx/scripts/"*.sh
 
-  # Symlink main.py to /usr/bin/dotidx
+  # Ensure the entry point is executable
+  chmod +x "$pkgdir/usr/share/dotidx/main.py"
+
+  # Create symlink in /usr/bin
   ln -s /usr/share/dotidx/main.py "$pkgdir/usr/bin/dotidx"
 }

@@ -1,0 +1,27 @@
+pkgname=dotidx-test
+pkgver=local
+pkgrel=1
+pkgdesc="Test build for dotidx"
+arch=('any')
+depends=('python' 'python-rich' 'rsync')
+# Leave source empty so makepkg doesn't look for files to download/copy
+source=()
+sha256sums=()
+
+package() {
+  # $startdir is the directory where the PKGBUILD is located
+  # We copy directly from your development folder
+  
+  install -d "$pkgdir/usr/share/dotidx"
+  install -d "$pkgdir/usr/bin"
+
+  install -m644 "$startdir/main.py" "$pkgdir/usr/share/dotidx/main.py"
+  install -m644 "$startdir/interactive.py" "$pkgdir/usr/share/dotidx/interactive.py"
+  
+  cp -r "$startdir/scripts" "$pkgdir/usr/share/dotidx/"
+  
+  chmod +x "$pkgdir/usr/share/dotidx/scripts/"*.sh
+  chmod +x "$pkgdir/usr/share/dotidx/main.py"
+
+  ln -sf /usr/share/dotidx/main.py "$pkgdir/usr/bin/dotidx-test"
+}
