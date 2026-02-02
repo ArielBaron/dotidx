@@ -1,6 +1,6 @@
 # Maintainer: Ariel Baron <arielbar80@gmail.com>
 pkgname=dotidx
-pkgver=1.0.1
+pkgver=1.0.2
 pkgrel=1
 pkgdesc="A declarative, multi-profile dotfile manager focused on physical isolation and manifest-based tracking."
 arch=('any')
