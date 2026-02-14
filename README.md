@@ -1,4 +1,4 @@
-<h1>dotidx v1.0.0<h1>
+# dotidx v1.0.0
 
 ![AUR version](https://img.shields.io/aur/version/dotidx?color=blue&style=flat-square)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)
