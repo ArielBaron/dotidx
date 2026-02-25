@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-"""Interactive UI components for dotidx using Rich TUI."""
-
 import sys
 from pathlib import Path
 import tty
@@ -124,17 +122,14 @@ def interactive_select(items, preselected=None, home=None):
                     current = (current - 1) % len(items)
                 elif key == "\x1b[B" or key == "j":
                     current = (current + 1) % len(items)
-
                 elif key == " ":
                     item = items[current]
                     if item in selected:
                         selected.remove(item)
                     else:
                         selected.add(item)
-
                 elif key in ("\r", "\n"):
                     break
-
                 elif key == "a":
                     if all_selected:
                         selected.clear()
@@ -142,7 +137,6 @@ def interactive_select(items, preselected=None, home=None):
                     else:
                         selected = set(items)
                         all_selected = True
-
                 elif key == "h":
                     hide_selected = not hide_selected
                     if hide_selected:
@@ -151,7 +145,6 @@ def interactive_select(items, preselected=None, home=None):
                         items = list(original_items)
                     current = 0
                     scroll_offset = 0
-
                 elif key == "q" or key == "\x03":
                     console.print("\n[yellow]Cancelled.[/yellow]")
                     sys.exit(0)
@@ -161,19 +154,3 @@ def interactive_select(items, preselected=None, home=None):
         sys.exit(0)
 
     return selected
-
-
-def show_success(msg):
-    console.print(f"[bold green]✓[/bold green] {msg}")
-
-
-def show_error(msg):
-    console.print(f"[bold red]✗[/bold red] {msg}")
-
-
-def show_info(msg):
-    console.print(f"[bold cyan]ℹ[/bold cyan] {msg}")
-
-
-def show_warning(msg):
-    console.print(f"[bold yellow]⚠[/bold yellow] {msg}")
