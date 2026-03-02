@@ -33,7 +33,7 @@ mkdir -p ~/.config/dotidx/profiles
 ln -s $(pwd)/main.py ~/.local/bin/dotidx
 ```
 
-**Dependencies:** `python`, `rsync`, `git`, `python-rich`, `jq`
+**Dependencies:** `python`, `rsync`, `git`, `python-rich`, `python-textual`, `jq`
 
 ---
 
@@ -52,6 +52,13 @@ Opens an interactive TUI to select which dotfiles to track under the active prof
 
 ```bash
 dotidx config
+```
+
+### `mime`
+Opens an interactive TUI to configure default applications for MIME types and URI schemes.
+
+```bash
+dotidx mime
 ```
 
 ### `add <name>`
