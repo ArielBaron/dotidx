@@ -82,6 +82,10 @@ def run_sync():
 def run_update():
     subprocess.run([str(SCRIPTS_DIR / "update.sh")], check=True)
 
+def run_pull():
+    """Pull latest changes from git repo to backup directory"""
+    subprocess.run([str(SCRIPTS_DIR / "pull.sh")], check=True)
+
 def run_config():
     profile = get_current_profile()
     data = load_track_data()

@@ -10,8 +10,8 @@ sys.path.append(str(REAL_DIR))
 
 from ui import show_success, show_error, show_info
 from dotfile import (
-    run_setup, run_profile_switch, run_rest, run_sync,
-    run_update, run_config, run_list, run_add, run_remove,
+    run_pull, run_setup, run_profile_switch, run_rest, run_sync,
+    run_update, run_config, run_list, run_add, run_remove
 )
 from mime import get_mime_categories, write_mimeapps, write_browser_mimeapps
 from mime_tui import mime_config_tui, browser_config_tui
@@ -50,7 +50,7 @@ def main():
     parser = argparse.ArgumentParser(description="dotidx – multi-profile dotfile tracking")
     parser.add_argument(
         "mode",
-        choices=["rest", "mime", "update", "sync", "config", "list", "setup", "add", "remove", "profile"],
+        choices=["pull","rest", "mime", "update", "sync", "config", "list", "setup", "add", "remove", "profile"],
     )
     parser.add_argument("additional", nargs="?")
     parser.add_argument("key", nargs="?")
@@ -61,6 +61,7 @@ def main():
     if args.mode == "update":        run_update()
     elif args.mode == "sync":        run_sync()
     elif args.mode == "rest":        run_rest()
+    elif args.mode == "pull":        run_pull()
     elif args.mode == "config":      run_config()
     elif args.mode == "list":        run_list()
     elif args.mode == "setup":       run_setup(args.additional)
