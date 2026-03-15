@@ -9,79 +9,132 @@ TRACK_CONF="$HOME/.config/dotidx/track.conf"
 BASE_BACKUP="$HOME/dotidxBackup"
 
 if [ ! -f "$STATE_FILE" ]; then
-    echo "Error: No active profile found."
-    exit 1
+  echo "Error: No active profile found."
+  exit 1
 fi
 
 PROFILE=$(cat "$STATE_FILE")
 BACKUP="$BASE_BACKUP/$PROFILE"
-mkdir -p "$BACKUP"
+
+# Get just the filename (e.g., converts /home/ariel/.zshrc -> .zshrc)
+INPUT_RAW="${1:-}"
+INPUT=$(basename "$INPUT_RAW")
+
+# -------------------------
+# Path Discovery Logic
+# -------------------------
+TARGET_SRC=""
+
+if [ -n "$INPUT" ]; then
+  # Define the search candidates within the backup folder
+  CANDIDATES=(
+    "$BACKUP/$INPUT"
+    "$BACKUP/$INPUT.conf"
+    "$BACKUP/.config/$INPUT"
+    "$BACKUP/.config/$INPUT.conf"
+  )
+
+  for cand in "${CANDIDATES[@]}"; do
+    if [ -e "$cand" ]; then
+      # Map the backup path back to the real system path
+      # Remove the $BACKUP prefix from the candidate path
+      rel_to_backup="${cand#$BACKUP}"
+
+      # Construct the system path: $HOME + the relative part
+      TARGET_SRC="$HOME$rel_to_backup"
+
+      # If we matched a .conf candidate, check if the real file is without .conf
+      if [[ "$TARGET_SRC" == *.conf ]] && [ ! -e "$TARGET_SRC" ]; then
+        TARGET_SRC="${TARGET_SRC%.conf}"
+      fi
+
+      if [ -e "$TARGET_SRC" ]; then
+        echo "Matched '$INPUT' to system path: $TARGET_SRC"
+        break
+      else
+        TARGET_SRC="" # Reset and keep looking if system file doesn't exist
+      fi
+    fi
+  done
+
+  if [ -z "$TARGET_SRC" ]; then
+    echo "Error: Could not find a tracked match for '$INPUT' in $PROFILE backup structure."
+    exit 1
+  fi
+fi
 
 # -------------------------
 # Load tracked paths
 # -------------------------
 if [ ! -s "$TRACK_CONF" ]; then
-    echo "No tracking configuration found."
-    exit 0
+  echo "No tracking configuration found."
+  exit 0
 fi
 
 mapfile -t TRACKED < <(jq -r --arg prof "$PROFILE" 'to_entries[] | select(.value | index($prof)) | .key' "$TRACK_CONF" | sed "s|^~|$HOME|")
 
-if [ ${#TRACKED[@]} -eq 0 ]; then
-    echo "No files tracked for profile: $PROFILE"
-    exit 0
-fi
-
 # -------------------------
 # COPY PHASE
 # -------------------------
+updated=false
 for src in "${TRACKED[@]}"; do
-    [ ! -e "$src" ] && continue
-    dst="$BACKUP${src#$HOME}"
-    mkdir -p "$(dirname "$dst")"
-    if [ -d "$src" ]; then
-        # Use rsync to mirror content
-        rsync -a --copy-links --safe-links --delete --exclude ".git" "$src/" "$dst/"
-    else
-        cp -RL "$src" "$dst"
-    fi
+  [ ! -e "$src" ] && continue
+
+  # If a target was discovered, only sync that specific path
+  if [ -n "$TARGET_SRC" ] && [ "$src" != "$TARGET_SRC" ]; then
+    continue
+  fi
+
+  dst="$BACKUP${src#$HOME}"
+  mkdir -p "$(dirname "$dst")"
+
+  echo "Updating: $src"
+  if [ -d "$src" ]; then
+    rsync -a --copy-links --safe-links --delete --exclude ".git" "$src/" "$dst/"
+  else
+    cp -RL "$src" "$dst"
+  fi
+  updated=true
 done
 
 # -------------------------
-# CLEANUP PHASE
+# CLEANUP PHASE (Full update only)
 # -------------------------
-# We only delete files inside $BACKUP that are NOT in the tracking list
-# and NOT part of the .git directory.
-find "$BACKUP" -mindepth 1 -not -path "$BACKUP/.git*" | while read -r path; do
+if [ -z "$INPUT" ]; then
+  find "$BACKUP" -mindepth 1 -not -path "$BACKUP/.git*" | while read -r path; do
     keep=false
     for t in "${TRACKED[@]}"; do
-        tracked_dst="$BACKUP${t#$HOME}"
-        # Keep if path is tracked_dst, or a parent of tracked_dst, or a child of tracked_dst
-        if [[ "$tracked_dst" == "$path"* ]] || [[ "$path" == "$tracked_dst"* ]]; then
-            keep=true
-            break
-        fi
+      tracked_dst="$BACKUP${t#$HOME}"
+      if [[ "$tracked_dst" == "$path"* ]] || [[ "$path" == "$tracked_dst"* ]]; then
+        keep=true
+        break
+      fi
     done
-    if [ "$keep" = false ]; then
-        rm -rf "$path"
-    fi
-done
-
+    [ "$keep" = false ] && rm -rf "$path"
+  done
+fi
 # -------------------------
 # GIT PHASE
 # -------------------------
 if [ -d "$BACKUP/.git" ]; then
-    cd "$BACKUP"
-    # Basic check to ensure it's a repo
-    if [ -f ".git/config" ]; then
-        git add -A
-        git commit -m "auto-update [$PROFILE] ($(date '+%Y-%m-%d %H:%M:%S'))" || echo "Nothing to commit"
-        git push origin "$(git rev-parse --abbrev-ref HEAD)" || echo "Push failed"
-    else
-        echo "Error: .git directory is corrupted in $BACKUP"
-    fi
-else
-    echo "No .git found for profile '$PROFILE'."
-fi
+  cd "$BACKUP"
+  git add -A
 
-echo "Backup complete for profile '$PROFILE'."
+  # Get a clean timestamp
+  TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+
+  # Create a dynamic message
+  if [ -n "$INPUT" ]; then
+    MSG="auto-update [$PROFILE] $INPUT ($TIMESTAMP)"
+  else
+    MSG="auto-update [$PROFILE] all ($TIMESTAMP)"
+  fi
+
+  # Commit and push
+  # '|| true' ensures that if the file hasn't actually changed since the last
+  # update, the script doesn't exit with an error.
+  git commit -m "$MSG" || echo "Nothing new to commit for $INPUT"
+
+  git push origin "$(git rev-parse --abbrev-ref HEAD)" || echo "Push failed"
+fi
+echo "✅ Backup complete."

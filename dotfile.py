@@ -25,11 +25,13 @@ SCRIPTS_DIR = REAL_DIR / "scripts"
 # Data Helpers
 # -------------------------
 
+
 def get_current_profile():
     if not STATE_FILE.exists():
         show_error("No active profile. Run 'dotidx setup' or 'dotidx profile <name>'.")
         exit(1)
     return STATE_FILE.read_text().strip()
+
 
 def load_track_data():
     if not TRACK_FILE.exists() or TRACK_FILE.stat().st_size == 0:
@@ -40,9 +42,11 @@ def load_track_data():
     except json.JSONDecodeError:
         return {}
 
+
 def save_track_data(data):
     with open(TRACK_FILE, "w") as f:
         json.dump(data, f, indent=2)
+
 
 def get_tracked_for_profile(profile):
     data = load_track_data()
@@ -52,9 +56,11 @@ def get_tracked_for_profile(profile):
             tracked_paths.append(Path(path_str).expanduser().resolve())
     return set(tracked_paths)
 
+
 # -------------------------
 # Commands
 # -------------------------
+
 
 def run_setup(repo_url=None):
     setup_script = SCRIPTS_DIR / "setup.sh"
@@ -62,6 +68,7 @@ def run_setup(repo_url=None):
     if repo_url:
         cmd.append(repo_url)
     subprocess.run(cmd, check=True)
+
 
 def run_profile_switch(name):
     if not name:
@@ -73,18 +80,29 @@ def run_profile_switch(name):
     STATE_FILE.write_text(name)
     show_success(f"Switched to profile: {name}")
 
+
 def run_rest():
     subprocess.run([str(SCRIPTS_DIR / "rest.sh")], check=True)
+
 
 def run_sync():
     subprocess.run([str(SCRIPTS_DIR / "sync.sh")], check=True)
 
-def run_update():
-    subprocess.run([str(SCRIPTS_DIR / "update.sh")], check=True)
+
+def run_update(target=None):
+    cmd = [str(SCRIPTS_DIR / "update.sh")]
+    if target:
+        # If user provides a name, we resolve it to an absolute path
+        # so the bash script knows exactly what to look for.
+        target_path = Path(target).expanduser().resolve()
+        cmd.append(str(target_path))
+
+    subprocess.run(cmd, check=True)
+
 
 def run_pull():
-    """Pull latest changes from git repo to backup directory"""
     subprocess.run([str(SCRIPTS_DIR / "pull.sh")], check=True)
+
 
 def run_config():
     profile = get_current_profile()
@@ -129,6 +147,7 @@ def run_config():
     save_track_data(data)
     show_success(f"Configuration complete for '{profile}'.")
 
+
 def run_list():
     profile = get_current_profile()
     tracked = get_tracked_for_profile(profile)
@@ -140,6 +159,7 @@ def run_list():
     for p in sorted(tracked):
         display = str(p).replace(str(HOME), "~")
         console.print(f"  [green]•[/green] {display}")
+
 
 def run_add(name, is_path=False):
     profile = get_current_profile()
@@ -168,6 +188,7 @@ def run_add(name, is_path=False):
     data[target_str] = sorted(profiles)
     save_track_data(data)
     show_success(f"Added to '{profile}': {target_str}")
+
 
 def run_remove(name, is_path=False):
     profile = get_current_profile()
