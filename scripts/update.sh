@@ -16,7 +16,7 @@ fi
 PROFILE=$(cat "$STATE_FILE")
 BACKUP="$BASE_BACKUP/$PROFILE"
 
-# Get just the filename (e.g., converts /home/ariel/.zshrc -> .zshrc)
+# Get just the filename
 INPUT_RAW="${1:-}"
 INPUT=$(basename "$INPUT_RAW")
 
@@ -26,7 +26,6 @@ INPUT=$(basename "$INPUT_RAW")
 TARGET_SRC=""
 
 if [ -n "$INPUT" ]; then
-  # Define the search candidates within the backup folder
   CANDIDATES=(
     "$BACKUP/$INPUT"
     "$BACKUP/$INPUT.conf"
@@ -36,14 +35,9 @@ if [ -n "$INPUT" ]; then
 
   for cand in "${CANDIDATES[@]}"; do
     if [ -e "$cand" ]; then
-      # Map the backup path back to the real system path
-      # Remove the $BACKUP prefix from the candidate path
       rel_to_backup="${cand#$BACKUP}"
-
-      # Construct the system path: $HOME + the relative part
       TARGET_SRC="$HOME$rel_to_backup"
 
-      # If we matched a .conf candidate, check if the real file is without .conf
       if [[ "$TARGET_SRC" == *.conf ]] && [ ! -e "$TARGET_SRC" ]; then
         TARGET_SRC="${TARGET_SRC%.conf}"
       fi
@@ -52,7 +46,7 @@ if [ -n "$INPUT" ]; then
         echo "Matched '$INPUT' to system path: $TARGET_SRC"
         break
       else
-        TARGET_SRC="" # Reset and keep looking if system file doesn't exist
+        TARGET_SRC=""
       fi
     fi
   done
@@ -76,11 +70,10 @@ mapfile -t TRACKED < <(jq -r --arg prof "$PROFILE" 'to_entries[] | select(.value
 # -------------------------
 # COPY PHASE
 # -------------------------
-updated=false
+updated_count=0
 for src in "${TRACKED[@]}"; do
   [ ! -e "$src" ] && continue
 
-  # If a target was discovered, only sync that specific path
   if [ -n "$TARGET_SRC" ] && [ "$src" != "$TARGET_SRC" ]; then
     continue
   fi
@@ -94,14 +87,21 @@ for src in "${TRACKED[@]}"; do
   else
     cp -RL "$src" "$dst"
   fi
-  updated=true
+  updated_count=$((updated_count + 1))
 done
+
+if [ "$updated_count" -eq 0 ]; then
+  echo "Nothing to update."
+  exit 0
+fi
 
 # -------------------------
 # CLEANUP PHASE (Full update only)
 # -------------------------
 if [ -z "$INPUT" ]; then
-  find "$BACKUP" -mindepth 1 -not -path "$BACKUP/.git*" | while read -r path; do
+  echo "Running cleanup..."
+  # Use -print0 to handle spaces/weird names safely
+  find "$BACKUP" -mindepth 1 -not -path "$BACKUP/.git*" -print0 | while IFS= read -r -d '' path; do
     keep=false
     for t in "${TRACKED[@]}"; do
       tracked_dst="$BACKUP${t#$HOME}"
@@ -110,9 +110,12 @@ if [ -z "$INPUT" ]; then
         break
       fi
     done
-    [ "$keep" = false ] && rm -rf "$path"
+    if [ "$keep" = false ]; then
+      rm -rf "$path"
+    fi
   done
 fi
+
 # -------------------------
 # GIT PHASE
 # -------------------------
@@ -120,21 +123,14 @@ if [ -d "$BACKUP/.git" ]; then
   cd "$BACKUP"
   git add -A
 
-  # Get a clean timestamp
   TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+  MSG="auto-update [$PROFILE] ${INPUT:-all} ($TIMESTAMP)"
 
-  # Create a dynamic message
-  if [ -n "$INPUT" ]; then
-    MSG="auto-update [$PROFILE] $INPUT ($TIMESTAMP)"
-  else
-    MSG="auto-update [$PROFILE] all ($TIMESTAMP)"
-  fi
+  # '|| true' on commit is vital if no changes exist
+  git commit -m "$MSG" || echo "Nothing new to commit."
 
-  # Commit and push
-  # '|| true' ensures that if the file hasn't actually changed since the last
-  # update, the script doesn't exit with an error.
-  git commit -m "$MSG" || echo "Nothing new to commit for $INPUT"
-
-  git push origin "$(git rev-parse --abbrev-ref HEAD)" || echo "Push failed"
+  # '|| true' on push prevents script crash on network failure
+  git push origin "$(git rev-parse --abbrev-ref HEAD)" || echo "Push failed (check network/remote)"
 fi
+
 echo "✅ Backup complete."
