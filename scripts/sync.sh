@@ -19,20 +19,20 @@ fi
 
 echo "Restoring profile: $PROFILE..."
 
-# Iterate and force overwrite
+# Iterate through all files in the backup
 while IFS= read -r -d '' backup_file; do
     rel_path="${backup_file#$BACKUP/}"
-    home_file="$HOME/$rel_path"
-    
-    # Ensure target directory exists
-    mkdir -p "$(dirname "$home_file")"
-    
-    # Force copy backup over home
-    if cp -f "$backup_file" "$home_file"; then
-        echo "Restored: $home_file"
+
+    # Map home files relative to $HOME
+    if [[ "$rel_path" == "~/"* ]]; then
+        rel_path="${rel_path#??}"  # remove leading ~/
+        home_file="$HOME/$rel_path"
     else
-        echo "FAILED: $home_file"
+        home_file="$rel_path"  # absolute system path
     fi
+
+    mkdir -p "$(dirname "$home_file")"
+    cp -RL "$backup_file" "$home_file" && echo "Restored: $home_file"
 done < <(find "$BACKUP" -type f -not -path "*/.git/*" -print0)
 
 echo "Sync complete."

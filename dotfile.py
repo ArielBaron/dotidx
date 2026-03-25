@@ -63,8 +63,7 @@ def get_tracked_for_profile(profile):
 
 
 def run_setup(repo_url=None):
-    setup_script = SCRIPTS_DIR / "setup.sh"
-    cmd = [str(setup_script)]
+    cmd = ["bash", str(SCRIPTS_DIR / "setup.sh")]
     if repo_url:
         cmd.append(repo_url)
     subprocess.run(cmd, check=True)
@@ -82,18 +81,16 @@ def run_profile_switch(name):
 
 
 def run_rest():
-    subprocess.run([str(SCRIPTS_DIR / "rest.sh")], check=True)
+    subprocess.run(["bash", str(SCRIPTS_DIR / "rest.sh")], check=True)
 
 
 def run_sync():
-    subprocess.run([str(SCRIPTS_DIR / "sync.sh")], check=True)
+    subprocess.run(["bash", str(SCRIPTS_DIR / "sync.sh")], check=True)
 
 
 def run_update(target=None):
-    cmd = [str(SCRIPTS_DIR / "update.sh")]
+    cmd = ["bash", str(SCRIPTS_DIR / "update.sh")]
     if target:
-        # If user provides a name, we resolve it to an absolute path
-        # so the bash script knows exactly what to look for.
         target_path = Path(target).expanduser().resolve()
         cmd.append(str(target_path))
 
@@ -101,7 +98,7 @@ def run_update(target=None):
 
 
 def run_pull():
-    subprocess.run([str(SCRIPTS_DIR / "pull.sh")], check=True)
+    subprocess.run(["bash", str(SCRIPTS_DIR / "pull.sh")], check=True)
 
 
 def run_config():

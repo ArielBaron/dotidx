@@ -1,0 +1,7 @@
+[user]
+	email = arielbar80@gmail.com
+	name = ArielBaron
+[core]
+	autocrlf = input
+[push]
+	autoSetupRemote = true
