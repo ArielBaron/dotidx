@@ -69,8 +69,8 @@ def main():
             "config",
             "list",
             "setup",
-            "add",
-            "remove",
+            "track",
+            "untrack",
             "profile",
         ],
     )
@@ -99,9 +99,9 @@ def main():
         run_list()
     elif args.mode == "setup":
         run_setup(args.additional)
-    elif args.mode == "add":
+    elif args.mode == "track":
         run_add(args.additional, args.path)
-    elif args.mode == "remove":
+    elif args.mode == "untrack":
         run_remove(args.additional, args.path)
     elif args.mode == "profile":
         run_profile_switch(args.additional)
