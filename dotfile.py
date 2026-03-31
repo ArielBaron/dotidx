@@ -158,7 +158,7 @@ def run_list():
         console.print(f"  [green]•[/green] {display}")
 
 
-def run_add(name, is_path=False):
+def run_track(name, is_path=False):
     profile = get_current_profile()
 
     if is_path:
@@ -187,7 +187,7 @@ def run_add(name, is_path=False):
     show_success(f"Added to '{profile}': {target_str}")
 
 
-def run_remove(name, is_path=False):
+def run_untrack(name, is_path=False):
     profile = get_current_profile()
     data = load_track_data()
     target_key = None

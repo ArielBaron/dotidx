@@ -18,8 +18,8 @@ from dotfile import (
     run_update,
     run_config,
     run_list,
-    run_add,
-    run_remove,
+    run_track,
+    run_untrack,
 )
 from mime import get_mime_categories, write_mimeapps, write_browser_mimeapps
 from mime_tui import mime_config_tui, browser_config_tui
@@ -100,9 +100,9 @@ def main():
     elif args.mode == "setup":
         run_setup(args.additional)
     elif args.mode == "track":
-        run_add(args.additional, args.path)
+        run_track(args.additional, args.path)
     elif args.mode == "untrack":
-        run_remove(args.additional, args.path)
+        run_untrack(args.additional, args.path)
     elif args.mode == "profile":
         run_profile_switch(args.additional)
     elif args.mode == "mime":
@@ -111,3 +111,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

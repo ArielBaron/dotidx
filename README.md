@@ -61,20 +61,21 @@ Opens an interactive TUI to configure default applications for MIME types and UR
 dotidx mime
 ```
 
-### `add <name>`
-Adds a single file or directory to the active profile's tracking list. By default, searches common locations (`~/name`, `~/.name`, `~/.config/name`). Use `-p` to pass a direct path.
+### `track <name>`
+Adds a single file or directory to the active profile's tracking list. By default, searches common locations (`~/name`, `~/.name`, `~/.config/name`),
+works with direct paths.
 
 ```bash
-dotidx add zsh
-dotidx add -p ~/.zshrc
+dotidx track .zshrc
+dotidx track ~/.zshrc
 ```
 
-### `remove <name>`
-Removes a path from the active profile's tracking list. Does **not** touch the filesystem.
+### `untrack <name>`
+Removes a path from the active profile's tracking list (uses same logic to detect location). Does **not** touch the backup.
 
 ```bash
-dotidx remove zsh
-dotidx remove -p ~/.zshrc
+dotidx untrack zsh
+dotidx untrack  ~/.zshrc
 ```
 
 ### `list`
@@ -85,14 +86,14 @@ dotidx list
 ```
 
 ### `update`
-Copies all tracked files to `~/dotidxBackup/<profile>/`, prunes stale entries, and commits + pushes if the backup directory has a `.git` repo.
+Copies all tracked files to `~/dotidxBackup/<profile>/`, it's a **pure copy**, meaning it will delete any files not tracked taht are already in the backup. it also  commits + pushes if the backup directory has a `.git` repo.
 
 ```bash
 dotidx update
 ```
 
 ### `sync`
-Restores files from `~/dotidxBackup/<profile>/` back to their original locations in `$HOME`, overwriting current versions. Use this when setting up a new machine.
+sync/replace files from `~/dotidxBackup/<profile>/` back to their original locations in `$HOME`, overwriting current versions.
 
 ```bash
 dotidx sync
@@ -109,8 +110,8 @@ dotidx rest
 Switches the active profile. If no name is given, prints the current profile.
 
 ```bash
-dotidx profile
-dotidx profile work
+dotidx profile // output will be server
+dotidx profile work // will switch to profile work
 ```
 
 ---
@@ -122,8 +123,8 @@ dotidx profile work
 | `~/.config/dotidx/track.conf` | JSON map of tracked paths to their owning profiles |
 | `~/.config/dotidx/state.conf` | Name of the currently active profile |
 | `~/dotidxBackup/<profile>/` | Physical backup directory per profile |
-| `/usr/share/dotidx/` | Installed library (`main.py`, `interactive.py`) |
-| `/usr/share/dotidx/scripts/` | Shell scripts (`setup.sh`, `update.sh`, `sync.sh`, `rest.sh`) |
+| `/usr/share/dotidx/` | Installed library (`main.py`, `ui.py`. `dotfile_tui.py`...) |
+| `/usr/share/dotidx/scripts/` | Shell scripts (`setup.sh`, `update.sh`, `sync.sh`, `rest.sh`...) |
 
 ---
 
