@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 STATE_FILE="$HOME/.config/dotidx/state.conf"
-TRACK_CONF="$HOME/.config/dotidx/track.conf"
 BASE_BACKUP="$HOME/dotidxBackup"
 if [ ! -f "$STATE_FILE" ]; then
     echo "Error: No active profile found."
@@ -9,22 +8,17 @@ if [ ! -f "$STATE_FILE" ]; then
 fi
 PROFILE=$(cat "$STATE_FILE")
 BACKUP="$BASE_BACKUP/$PROFILE"
+TRACK_CONF="$HOME/.config/dotidx/${PROFILE}_track.conf"
 INPUT_RAW="${1:-}"
 INPUT=$(basename "$INPUT_RAW")
 if [ ! -s "$TRACK_CONF" ]; then
     echo "No tracking configuration found."
     exit 0
 fi
-mapfile -t TRACKED < <(
-    jq -r --arg prof "$PROFILE" '
-        to_entries[] | select(.value | index($prof)) | .key
-    ' "$TRACK_CONF"
-)
-
+mapfile -t TRACKED < <(jq -r '.[]' "$TRACK_CONF")
 declare -A EXPECTED_TOPS
 EXPECTED_TOPS[".git"]=1
 EXPECTED_TOPS["~"]=1
-
 for src in "${TRACKED[@]}"; do
     if [[ "$src" == "~"* || "$src" == "$HOME"* ]]; then
         EXPECTED_TOPS["~"]=1
@@ -33,7 +27,6 @@ for src in "${TRACKED[@]}"; do
         EXPECTED_TOPS["$top"]=1
     fi
 done
-
 for entry in "$BACKUP"/*/ "$BACKUP"/.[!.]*; do
     [ -e "$entry" ] || continue
     name=$(basename "$entry")
@@ -42,7 +35,6 @@ for entry in "$BACKUP"/*/ "$BACKUP"/.[!.]*; do
         rm -rf "$entry"
     fi
 done
-
 updated_count=0
 for src in "${TRACKED[@]}"; do
     [[ -n "$INPUT" && "$src" != *"$INPUT"* ]] && continue

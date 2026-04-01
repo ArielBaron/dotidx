@@ -20,6 +20,7 @@ from dotfile import (
     run_list,
     run_track,
     run_untrack,
+    run_wipe,
 )
 from mime import get_mime_categories, write_mimeapps, write_browser_mimeapps
 from mime_tui import mime_config_tui, browser_config_tui
@@ -29,7 +30,6 @@ def run_mime(subcommand, key=None, value=None, extras=None):
     if subcommand not in ("config", "set"):
         show_error(f"Unknown subcommand '{subcommand}'. Use 'config' or 'set'.")
         return
-
     if subcommand == "config":
         if key is not None or value is not None or extras:
             show_error("'mime config' takes no arguments.")
@@ -44,7 +44,6 @@ def run_mime(subcommand, key=None, value=None, extras=None):
             if browser_selections:
                 write_browser_mimeapps(browser_selections)
             show_success("mimeapps.list updated successfully.")
-
     elif subcommand == "set":
         if key is None or value is None or extras:
             show_error("'mime set' requires exactly two arguments: <type> <tool>")
@@ -72,6 +71,7 @@ def main():
             "track",
             "untrack",
             "profile",
+            "wipe",
         ],
     )
     parser.add_argument("additional", nargs="?")
@@ -105,10 +105,11 @@ def main():
         run_untrack(args.additional, args.path)
     elif args.mode == "profile":
         run_profile_switch(args.additional)
+    elif args.mode == "wipe":
+        run_wipe()
     elif args.mode == "mime":
         run_mime(args.additional, args.key, args.value, extras)
 
 
 if __name__ == "__main__":
     main()
-

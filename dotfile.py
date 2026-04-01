@@ -14,12 +14,12 @@ from dotfile_tui import interactive_select
 
 HOME = Path.home()
 CONFIG_DIR = HOME / ".config" / "dotidx"
-TRACK_FILE = CONFIG_DIR / "track.conf"
 STATE_FILE = CONFIG_DIR / "state.conf"
 BACKUP_DIR = HOME / "dotidxBackup"
 DOT_CONFIG = HOME / ".config"
 LOCAL_APPS = HOME / ".local" / "share" / "applications"
 SCRIPTS_DIR = REAL_DIR / "scripts"
+
 
 # -------------------------
 # Data Helpers
@@ -33,28 +33,32 @@ def get_current_profile():
     return STATE_FILE.read_text().strip()
 
 
-def load_track_data():
-    if not TRACK_FILE.exists() or TRACK_FILE.stat().st_size == 0:
-        return {}
+def get_track_file(profile=None):
+    if profile is None:
+        profile = get_current_profile()
+    return CONFIG_DIR / f"{profile}_track.conf"
+
+
+def load_track_data(profile=None):
+    track_file = get_track_file(profile)
+    if not track_file.exists() or track_file.stat().st_size == 0:
+        return []
     try:
-        with open(TRACK_FILE) as f:
+        with open(track_file) as f:
             return json.load(f)
     except json.JSONDecodeError:
-        return {}
+        return []
 
 
-def save_track_data(data):
-    with open(TRACK_FILE, "w") as f:
-        json.dump(data, f, indent=2)
+def save_track_data(data, profile=None):
+    track_file = get_track_file(profile)
+    with open(track_file, "w") as f:
+        json.dump(sorted(data), f, indent=2)
 
 
-def get_tracked_for_profile(profile):
-    data = load_track_data()
-    tracked_paths = []
-    for path_str, profiles in data.items():
-        if profile in profiles:
-            tracked_paths.append(Path(path_str).expanduser().resolve())
-    return set(tracked_paths)
+def get_tracked_for_profile(profile=None):
+    data = load_track_data(profile)
+    return set(Path(p).expanduser().resolve() for p in data)
 
 
 # -------------------------
@@ -93,7 +97,6 @@ def run_update(target=None):
     if target:
         target_path = Path(target).expanduser().resolve()
         cmd.append(str(target_path))
-
     subprocess.run(cmd, check=True)
 
 
@@ -101,10 +104,13 @@ def run_pull():
     subprocess.run(["bash", str(SCRIPTS_DIR / "pull.sh")], check=True)
 
 
+def run_wipe():
+    subprocess.run(["bash", str(SCRIPTS_DIR / "wipe.sh")], check=True)
+
+
 def run_config():
     profile = get_current_profile()
-    data = load_track_data()
-    profile_tracked = [str(p) for p in get_tracked_for_profile(profile)]
+    tracked_paths = get_tracked_for_profile(profile)
 
     candidates = []
     for f in HOME.iterdir():
@@ -118,30 +124,13 @@ def run_config():
         candidates.append(LOCAL_APPS)
 
     candidates.sort()
-    preselected = [c for c in candidates if str(c) in profile_tracked]
+    preselected = [c for c in candidates if c.resolve() in tracked_paths]
 
     show_info(f"Configuring profile: [bold]{profile}[/bold]")
     selected = interactive_select(candidates, preselected, HOME)
 
-    new_selected_strs = set(str(p.resolve()) for p in selected)
-
-    for c in candidates:
-        path_key = str(c.resolve())
-        current_profiles = data.get(path_key, [])
-
-        if path_key in new_selected_strs:
-            if profile not in current_profiles:
-                current_profiles.append(profile)
-        else:
-            if profile in current_profiles:
-                current_profiles.remove(profile)
-
-        if current_profiles:
-            data[path_key] = sorted(current_profiles)
-        elif path_key in data:
-            del data[path_key]
-
-    save_track_data(data)
+    new_selected = set(str(p.resolve()) for p in selected)
+    save_track_data(list(new_selected), profile)
     show_success(f"Configuration complete for '{profile}'.")
 
 
@@ -172,41 +161,31 @@ def run_track(name, is_path=False):
         show_error(f"No match found for: {name}")
         return
 
-    target = candidates[0]
-    target_str = str(target)
-    data = load_track_data()
+    target_str = str(candidates[0])
+    data = load_track_data(profile)
 
-    profiles = data.get(target_str, [])
-    if profile in profiles:
+    if target_str in data:
         show_info(f"Already tracked in '{profile}': {target_str}")
         return
 
-    profiles.append(profile)
-    data[target_str] = sorted(profiles)
-    save_track_data(data)
+    data.append(target_str)
+    save_track_data(data, profile)
     show_success(f"Added to '{profile}': {target_str}")
 
 
 def run_untrack(name, is_path=False):
     profile = get_current_profile()
-    data = load_track_data()
-    target_key = None
+    data = load_track_data(profile)
 
     if is_path:
         target_key = str(Path(name).expanduser().resolve())
     else:
-        for path_str in data:
-            if name in path_str:
-                target_key = path_str
-                break
+        target_key = next((p for p in data if name in p), None)
 
-    if not target_key or target_key not in data or profile not in data[target_key]:
+    if not target_key or target_key not in data:
         show_error(f"Not tracked in '{profile}': {name}")
         return
 
-    data[target_key].remove(profile)
-    if not data[target_key]:
-        del data[target_key]
-
-    save_track_data(data)
+    data.remove(target_key)
+    save_track_data(data, profile)
     show_success(f"Removed '{name}' from profile '{profile}'.")
