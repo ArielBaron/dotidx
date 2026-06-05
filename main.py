@@ -96,7 +96,7 @@ def main():
     elif args.mode == "config":
         run_config()
     elif args.mode == "list":
-        run_list()
+        run_list(args.additional)
     elif args.mode == "setup":
         run_setup(args.additional)
     elif args.mode == "track":

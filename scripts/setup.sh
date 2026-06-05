@@ -48,3 +48,25 @@ if [ -n "$URL" ]; then
   fi
   echo "Backup repo for '$PROFILE' synchronized with remote."
 fi
+CURRENT_CONTENT=$(cat "$TRACK_CONF")
+if [ "$CURRENT_CONTENT" = "[]" ]; then
+  mapfile -t CANDIDATES < <(
+    find "$CONFIG_DIR" "$PROFILE_BACKUP_DIR" \
+      -name "*_track.conf" \
+      ! -name "${PROFILE}_track.conf" 2>/dev/null |
+      sort -u
+  )
+  if [ ${#CANDIDATES[@]} -gt 0 ]; then
+    echo "No tracking config for '$PROFILE'. Base off an existing one?"
+    for i in "${!CANDIDATES[@]}"; do
+      echo "  [$i] ${CANDIDATES[$i]}"
+    done
+    echo "  [s] Skip"
+    read -p "Choice: " CHOICE
+    if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [ "$CHOICE" -lt "${#CANDIDATES[@]}" ]; then
+      cp "${CANDIDATES[$CHOICE]}" "$TRACK_CONF"
+      echo "✅ Copied $(basename "${CANDIDATES[$CHOICE]}") as ${PROFILE}_track.conf"
+    fi
+  fi
+fi
+

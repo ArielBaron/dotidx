@@ -115,36 +115,59 @@ def run_config():
     candidates = []
     for f in HOME.iterdir():
         if f.name.startswith(".") and f != DOT_CONFIG:
-            candidates.append(f)
+            candidates.append(str(f.resolve()))
     if DOT_CONFIG.exists():
         for d in DOT_CONFIG.iterdir():
             if d.is_dir():
-                candidates.append(d)
+                candidates.append(str(d.resolve()))
     if LOCAL_APPS.exists():
-        candidates.append(LOCAL_APPS)
-
+        candidates.append(str(LOCAL_APPS.resolve()))
+    candidates.append("/etc/nixos")
     candidates.sort()
-    preselected = [c for c in candidates if c.resolve() in tracked_paths]
+    
+    tracked_strs = {str(p) for p in tracked_paths}
+    preselected = [c for c in candidates if c in tracked_strs]
+    
 
     show_info(f"Configuring profile: [bold]{profile}[/bold]")
-    selected = interactive_select(candidates, preselected, HOME)
+    selected = interactive_select(candidates, preselected, str(HOME))
 
-    new_selected = set(str(p.resolve()) for p in selected)
-    save_track_data(list(new_selected), profile)
+    # selected is already strings, no conversion needed
+    save_track_data(list(selected), profile)
     show_success(f"Configuration complete for '{profile}'.")
 
 
-def run_list():
-    profile = get_current_profile()
-    tracked = get_tracked_for_profile(profile)
-    if not tracked:
-        show_info(f"No dotfiles tracked for profile '{profile}'.")
-        return
+def run_list(type="current"):
+    if type == "current" or type is None:
+        profile = get_current_profile()
+        tracked = get_tracked_for_profile(profile)
+        if not tracked:
+            show_info(f"No dotfiles tracked for profile '{profile}'.")
+            return
 
-    console.print(f"\n[bold cyan]Tracked ({profile}):[/bold cyan]\n")
-    for p in sorted(tracked):
-        display = str(p).replace(str(HOME), "~")
-        console.print(f"  [green]•[/green] {display}")
+        console.print(f"\n[bold cyan]Tracked ({profile}):[/bold cyan]\n")
+        for p in sorted(tracked):
+            display = str(p).replace(str(HOME), "~")
+            console.print(f"  [green]•[/green] {display}")
+
+    elif type == "profiles":
+        backup_dir = Path.home() / "dotidxBackup"
+        if not backup_dir.exists():
+            show_info("No profiles found.")
+            return
+        profiles = sorted([p.name for p in backup_dir.iterdir() if p.is_dir()])
+        if not profiles:
+            show_info("No profiles found.")
+            return
+        for profile in profiles:
+            tracked = get_tracked_for_profile(profile)
+            console.print(f"\n[bold cyan]Tracked ({profile}):[/bold cyan]\n")
+            if not tracked:
+                console.print("  [dim]No files tracked.[/dim]")
+            else:
+                for p in sorted(tracked):
+                    display = str(p).replace(str(HOME), "~")
+                    console.print(f"  [green]•[/green] {display}")
 
 
 def run_track(name, is_path=False):

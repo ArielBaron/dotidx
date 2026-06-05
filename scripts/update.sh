@@ -49,6 +49,7 @@ for src in "${TRACKED[@]}"; do
         dst="$BACKUP$src"
     fi
     if [ ! -e "$src" ]; then
+		echo "Folder/File Doesn't exist: $src"
         continue
     fi
     echo "Updating: $src"
