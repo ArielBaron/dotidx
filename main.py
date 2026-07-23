@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 from pathlib import Path
+import subprocess
 import sys
 import os
 
@@ -24,6 +25,7 @@ from dotfile import (
 )
 from mime import get_mime_categories, write_mimeapps, write_browser_mimeapps
 from mime_tui import mime_config_tui, browser_config_tui
+
 
 
 def run_mime(subcommand, key=None, value=None, extras=None):
@@ -52,6 +54,11 @@ def run_mime(subcommand, key=None, value=None, extras=None):
         print(f"key: {key}")
         print(f"value: {value}")
 
+def get_version():
+    with open('README.md', 'r') as file:
+        first_line = file.readline()
+        return first_line[2:]
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -77,6 +84,13 @@ def main():
     parser.add_argument("additional", nargs="?")
     parser.add_argument("key", nargs="?")
     parser.add_argument("value", nargs="?")
+    parser.add_argument(
+        "-v",
+        "--version",
+        action="version",
+        version=get_version(),
+        help="Show program's version number and exit",
+    )
     parser.add_argument(
         "-p",
         "--path",
