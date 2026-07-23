@@ -19,12 +19,16 @@ BACKUP_DIR = HOME / "dotidxBackup"
 DOT_CONFIG = HOME / ".config"
 LOCAL_APPS = HOME / ".local" / "share" / "applications"
 SCRIPTS_DIR = REAL_DIR / "scripts"
-
+README_FILE = REAL_DIR / "README.md"
 
 # -------------------------
 # Data Helpers
 # -------------------------
 
+def get_version():
+    with open(README_FILE, 'r') as file:
+        first_line = file.readline()
+        return first_line[2:]
 
 def get_current_profile():
     if not STATE_FILE.exists():

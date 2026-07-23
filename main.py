@@ -22,6 +22,7 @@ from dotfile import (
     run_track,
     run_untrack,
     run_wipe,
+    get_version
 )
 from mime import get_mime_categories, write_mimeapps, write_browser_mimeapps
 from mime_tui import mime_config_tui, browser_config_tui
@@ -54,10 +55,6 @@ def run_mime(subcommand, key=None, value=None, extras=None):
         print(f"key: {key}")
         print(f"value: {value}")
 
-def get_version():
-    with open('README.md', 'r') as file:
-        first_line = file.readline()
-        return first_line[2:]
 
 
 def main():
