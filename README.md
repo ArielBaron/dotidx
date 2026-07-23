@@ -1,4 +1,4 @@
-# dotidx v3.3.1
+# v3.3.3
 ![AUR version](https://img.shields.io/aur/version/dotidx?color=blue&style=flat-square)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)
 ![Platform: Arch Linux](https://img.shields.io/badge/Platform-Arch_Linux-1793d1?logo=arch-linux&style=flat-square)
