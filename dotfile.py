@@ -25,11 +25,6 @@ README_FILE = REAL_DIR / "README.md"
 # Data Helpers
 # -------------------------
 
-def get_version():
-    with open(README_FILE, 'r') as file:
-        first_line = file.readline()
-        return first_line[2:]
-
 def get_current_profile():
     if not STATE_FILE.exists():
         show_error("No active profile. Run 'dotidx setup' or 'dotidx profile <name>'.")

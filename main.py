@@ -7,6 +7,7 @@ import os
 
 REAL_FILE_PATH = Path(os.path.realpath(__file__))
 REAL_DIR = REAL_FILE_PATH.parent
+VERSION = "3.3.7"
 sys.path.append(str(REAL_DIR))
 
 from ui import show_success, show_error, show_info
@@ -85,7 +86,7 @@ def main():
         "-v",
         "--version",
         action="version",
-        version=get_version(),
+        version="dotidx v1.3.7",
         help="Show program's version number and exit",
     )
     parser.add_argument(
