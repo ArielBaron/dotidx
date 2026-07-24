@@ -23,7 +23,6 @@ from dotfile import (
     run_track,
     run_untrack,
     run_wipe,
-    get_version
 )
 from mime import get_mime_categories, write_mimeapps, write_browser_mimeapps
 from mime_tui import mime_config_tui, browser_config_tui
