@@ -16,9 +16,9 @@ for entry in "$BACKUP_DIR"/* "$BACKUP_DIR"/.*; do
     if [ "$base" = "." ] || [ "$base" = ".." ]; then
         continue
     elif [ "$base" = "~" ]; then
-        cp -a -v "$entry/." "$HOME/"
+        rsync -a -v --exclude='.git' "$entry/" "$HOME/" || echo "[WARN] Skipped unwriteable or restricted files in $entry" >&2
     else
         target="/$base"
-        sudo cp -a -v "$entry/." "$target/"
+        sudo rsync -a -v --exclude='.git' "$entry/" "$target/" || echo "[WARN] Skipped unwriteable or restricted files in $entry" >&2
     fi
 done
