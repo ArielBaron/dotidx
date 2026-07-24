@@ -1,4 +1,4 @@
-# v1.3.8
+# v3.3.8
 ![AUR version](https://img.shields.io/aur/version/dotidx?color=blue&style=flat-square)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)
 ![Platform: Arch Linux](https://img.shields.io/badge/Platform-Arch_Linux-1793d1?logo=arch-linux&style=flat-square)
