@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-STATE=$(cat ~/.config/dotidx/state.conf)
 BACKUP_DIR="$HOME/dotidxBackup/$STATE"
 
 if [ ! -d "$BACKUP_DIR" ]; then
