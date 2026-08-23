@@ -59,6 +59,7 @@ dotidx update
 dotidx sync
 ```
 - Overwrites local files with their backup version
+- purely, meaning it wont care about your track.conf
 
 ---
 
