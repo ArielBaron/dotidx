@@ -1,4 +1,4 @@
-# v3.3.8
+# v4.0.1
 ![AUR version](https://img.shields.io/aur/version/dotidx?color=blue&style=flat-square)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)
 ![Platform: Arch Linux](https://img.shields.io/badge/Platform-Arch_Linux-1793d1?logo=arch-linux&style=flat-square)
@@ -25,7 +25,6 @@ It is not meant to replace Git. It is meant to make Git-backed dotfile managemen
 - No symlinks — real file copies only
 - Git-backed backups
 - Interactive TUI for file selection
-- MIME / browser handler configuration and TUI
 - Strict, deterministic sync and update behavior
 
 ---
@@ -139,7 +138,6 @@ ln -s "$(pwd)/main.py" ~/.local/bin/dotidx
 - rsync
 - git
 - python-rich
-- python-textual
 - jq
 
 ---
@@ -154,7 +152,6 @@ Located in `scripts/`:
 - `rest.sh`
 - `wipe.sh`
 - `revert.sh`
-- MIME helpers
 
 These scripts implement the actual filesystem and Git logic.
 
@@ -166,11 +163,8 @@ These scripts implement the actual filesystem and Git logic.
 dotidx/
 ├── main.py
 ├── dotfile.py
-├── interactive.py
-├── ui.py
 ├── dotfile_tui.py
-├── mime.py
-├── mime_tui.py
+├── ui.py
 ├── scripts/
 └── README.md
 ```

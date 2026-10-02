@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
 import argparse
 from pathlib import Path
-import subprocess
 import sys
 import os
 
 REAL_FILE_PATH = Path(os.path.realpath(__file__))
 REAL_DIR = REAL_FILE_PATH.parent
-VERSION = "3.3.7"
+VERSION = "3.4.0"
 sys.path.append(str(REAL_DIR))
 
-from ui import show_success, show_error, show_info
 from dotfile import (
     run_pull,
     run_setup,
@@ -24,37 +22,6 @@ from dotfile import (
     run_untrack,
     run_wipe,
 )
-from mime import get_mime_categories, write_mimeapps, write_browser_mimeapps
-from mime_tui import mime_config_tui, browser_config_tui
-
-
-
-def run_mime(subcommand, key=None, value=None, extras=None):
-    if subcommand not in ("config", "set"):
-        show_error(f"Unknown subcommand '{subcommand}'. Use 'config' or 'set'.")
-        return
-    if subcommand == "config":
-        if key is not None or value is not None or extras:
-            show_error("'mime config' takes no arguments.")
-            return
-        categories = get_mime_categories()
-        result = mime_config_tui(categories)
-        if result is None:
-            show_info("Cancelled.")
-        else:
-            selections, browser_selections = result
-            write_mimeapps(selections, categories)
-            if browser_selections:
-                write_browser_mimeapps(browser_selections)
-            show_success("mimeapps.list updated successfully.")
-    elif subcommand == "set":
-        if key is None or value is None or extras:
-            show_error("'mime set' requires exactly two arguments: <type> <tool>")
-            return
-        print(f"subcommand: set")
-        print(f"key: {key}")
-        print(f"value: {value}")
-
 
 
 def main():
@@ -66,7 +33,6 @@ def main():
         choices=[
             "pull",
             "rest",
-            "mime",
             "update",
             "sync",
             "config",
@@ -79,13 +45,11 @@ def main():
         ],
     )
     parser.add_argument("additional", nargs="?")
-    parser.add_argument("key", nargs="?")
-    parser.add_argument("value", nargs="?")
     parser.add_argument(
         "-v",
         "--version",
         action="version",
-        version="dotidx v1.3.7",
+        version=f"dotidx v{VERSION}",
         help="Show program's version number and exit",
     )
     parser.add_argument(
@@ -94,7 +58,7 @@ def main():
         action="store_true",
         help="Treat input as a direct filesystem path",
     )
-    args, extras = parser.parse_known_args()
+    args = parser.parse_args()
 
     if args.mode == "update":
         run_update(args.additional)
@@ -118,8 +82,6 @@ def main():
         run_profile_switch(args.additional)
     elif args.mode == "wipe":
         run_wipe()
-    elif args.mode == "mime":
-        run_mime(args.additional, args.key, args.value, extras)
 
 
 if __name__ == "__main__":
